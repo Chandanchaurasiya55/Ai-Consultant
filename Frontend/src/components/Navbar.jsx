@@ -15,9 +15,9 @@ const Navbar = () => {
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 py-4 transition-all duration-200">
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2.5 font-display text-xl font-extrabold text-slate-900 tracking-tight">
-          <Sparkles className="text-brand-600 animate-pulse" size={24} fill="currentColor" />
-          <span>Consultant<span className="bg-gradient-to-r from-brand-600 to-indigo-400 bg-clip-text text-transparent">.AI</span></span>
+        <Link to="/" className="flex items-center gap-2.5 font-display text-lg font-extrabold text-slate-900 tracking-tight">
+          <Sparkles className="text-brand-600 animate-pulse" size={22} fill="currentColor" />
+          <span>Business Research<span className="bg-gradient-to-r from-brand-600 to-indigo-400 bg-clip-text text-transparent"> Agent</span></span>
         </Link>
 
         {/* Middle Navigation Links */}
