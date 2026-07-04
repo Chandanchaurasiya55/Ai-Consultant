@@ -166,12 +166,13 @@ TASK
 Use Google Search grounding to research REAL, current, industry-specific data (market sizes, CAGR %, real competitor names, real pricing, real keyword volumes wherever possible). Do not use generic placeholder numbers — ground every figure in the actual industry/geography given above.
 
 Generate a comprehensive, highly customized, and professional section.
-1. Write full, highly detailed, and exhaustive markdown content (at least 2500–3000 words) addressing all subtopics. For each subtopic, you must write at least 5 to 6 comprehensive, detailed paragraphs of analysis, including specific strategic advice, industry insights, and metrics. Avoid brief bullet points or quick summaries; expand on every strategic point to ensure it spans at least 3 full pages in length. Feel free to include tables.
-2. Provide a valid Mermaid.js diagram (such as flowchart, funnel, quadrant chart, or risk matrix) that visualizes the strategic concepts.
-3. Include 1-2 charts with REAL numeric values relevant to the chapter.
-4. Give 2 Unsplash image search suggestions.
-5. Provide 3-5 specific recommendations with timeframe, cost, impact.
-6. Provide trust indicators citing the sources that grounded your analysis.
+1. Write full, highly detailed, and exhaustive markdown content (at least 2000–3000 words) addressing all subtopics.
+2. CRITICAL LENGTH REQUIREMENT: The total word count of the "content" field MUST be at least 1500 words. For EACH subtopic listed under the chapter details: [${chapterMeta.subtopics.join(', ')}], you MUST write a distinct section headed by "#### [Subtopic Name]" and containing at least 4 detailed, comprehensive paragraphs (minimum 300 words per subtopic) of analysis, strategic advice, real-world metrics, and concrete steps. Short summaries, brief lists, or quick overviews are strictly forbidden.
+3. Provide a valid Mermaid.js diagram (such as flowchart, funnel, quadrant chart, or risk matrix) that visualizes the strategic concepts.
+4. Include 1-2 charts with REAL numeric values relevant to the chapter.
+5. Give 2 Unsplash image search suggestions.
+6. Provide 3-5 specific recommendations with timeframe, cost, impact.
+7. Provide trust indicators citing the sources that grounded your analysis.
 
 Return ONLY the JSON object matching the required schema. No markdown code block wraps, no preamble.
 `.trim();
@@ -183,7 +184,8 @@ Return ONLY the JSON object matching the required schema. No markdown code block
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
-        responseSchema: CHAPTER_ITEM_SCHEMA
+        responseSchema: CHAPTER_ITEM_SCHEMA,
+        maxOutputTokens: 8192
       }
     });
 
