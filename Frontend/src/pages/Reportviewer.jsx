@@ -3,8 +3,15 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FileText, RefreshCw, Download, Layers } from 'lucide-react';
 import { Bar, Line, Pie, Radar } from 'react-chartjs-2';
-import Chart from 'chart.js/auto';
+import {
+  Chart,
+  BarElement, LineElement, PointElement, ArcElement,
+  RadialLinearScale, CategoryScale, LinearScale,
+  Tooltip, Legend, Filler
+} from 'chart.js';
 import mermaid from 'mermaid';
+
+Chart.register(BarElement, LineElement, PointElement, ArcElement, RadialLinearScale, CategoryScale, LinearScale, Tooltip, Legend, Filler);
 
 mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
 
@@ -219,4 +226,4 @@ const ReportViewer = () => {
   );
 };
 
-export default ReportViewer;
+export default ReportViewer;.

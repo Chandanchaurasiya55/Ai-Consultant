@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import BusinessForm from './pages/BusinessForm';
-import ReportView from './pages/ReportView';
+import ReportView from './pages/Reportviewer';
 
 // Protected Route Wrapper Component
 const ProtectedRoute = ({ children }) => {
