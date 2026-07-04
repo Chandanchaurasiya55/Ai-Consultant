@@ -1,15 +1,318 @@
 import { GoogleGenAI } from '@google/genai';
 
 const apiKey = process.env.GEMINI_API_KEY;
-const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+const MODEL = process.env.GEMINI_MODEL_NAME || 'gemini-2.5-flash';
 
-// Helper to define schema structure for a single section
-const sectionSchema = {
+/**
+ * ==========================================================================
+ * REPORT_STRUCTURE
+ * ==========================================================================
+ * Single source of truth for the whole report. Derived + cleaned up from the
+ * "Business Market Research Bible" master index (duplicate/legacy chapter
+ * numbering from the old draft has been merged & de-duplicated here).
+ *
+ * 5 Volumes -> 28 Chapters + 1 Bonus Assets block.
+ * Both the backend (prompting/merging) and frontend (tabs/UI) should import
+ * this exact structure so nothing ever goes out of sync.
+ * ==========================================================================
+ */
+export const REPORT_STRUCTURE = [
+  {
+    volume: 1,
+    key: 'volume1',
+    title: 'Foundations',
+    subtitle: 'Idea validation, industry landscape, market sizing, customers & business model',
+    chapters: [
+      {
+        key: 'ideaValidation',
+        title: 'Chapter 1 — Business Idea Validation',
+        subtopics: ['Problem Validation', 'Market Gap Analysis', 'Customer Pain Point Mapping', 'Opportunity Matrix', 'Validation Checklist', 'Why Existing Businesses Fail'],
+        wantsDiagram: 'quadrantChart (Opportunity Matrix: Market Need vs Competitive Intensity)',
+        wantsChart: false
+      },
+      {
+        key: 'industryOverview',
+        title: 'Chapter 2 — Industry Research',
+        subtopics: ['Industry Definition', 'Industry Size', 'CAGR', 'Future Growth', 'Industry Life Cycle', 'Emerging Trends', 'AI Impact', 'Government Policies', 'Global vs India'],
+        wantsDiagram: false,
+        wantsChart: 'line (Industry size / CAGR trend, next 5 years)'
+      },
+      {
+        key: 'marketSize',
+        title: 'Chapter 3 — Market Size (TAM / SAM / SOM)',
+        subtopics: ['TAM', 'SAM', 'SOM', 'Top-down Calculation', 'Bottom-up Calculation', 'Revenue Projection', 'Market Forecast'],
+        wantsDiagram: 'flowchart funnel showing TAM -> SAM -> SOM narrowing',
+        wantsChart: 'bar (TAM vs SAM vs SOM in currency value)'
+      },
+      {
+        key: 'customerResearch',
+        title: 'Chapter 4 — Customer Research',
+        subtopics: ['Customer Persona', 'Buying Behaviour', 'Online Behaviour', 'Spending Habits', 'Pain Points', 'Motivation', 'Jobs To Be Done', 'Psychology', 'Emotional Triggers'],
+        wantsDiagram: 'flowchart of the customer journey (Awareness -> Consideration -> Purchase -> Retention -> Advocacy)',
+        wantsChart: false
+      },
+      {
+        key: 'businessModel',
+        title: 'Chapter 5 — Business Model',
+        subtopics: ['Lean Canvas', 'Business Model Canvas', 'Revenue Models', 'Pricing Basics'],
+        wantsDiagram: 'a 9-block Business Model Canvas represented as a grid/table',
+        wantsChart: false
+      }
+    ]
+  },
+  {
+    volume: 2,
+    key: 'volume2',
+    title: 'Strategy & Demand',
+    subtitle: 'SWOT, PESTEL, Porter\u2019s Five Forces, demand & keyword & location research',
+    chapters: [
+      {
+        key: 'swotAnalysis',
+        title: 'Chapter 6 — SWOT Analysis',
+        subtopics: ['Strengths', 'Weaknesses', 'Opportunities', 'Threats'],
+        wantsDiagram: '2x2 SWOT quadrant grid',
+        wantsChart: false
+      },
+      {
+        key: 'pestelAnalysis',
+        title: 'Chapter 7 — PESTEL Analysis',
+        subtopics: ['Political', 'Economic', 'Social', 'Technological', 'Environmental', 'Legal'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'portersFiveForces',
+        title: 'Chapter 8 — Porter\u2019s Five Forces',
+        subtopics: ['Supplier Power', 'Buyer Power', 'New Entrants', 'Substitute Products', 'Competitive Rivalry'],
+        wantsDiagram: 'radar/star chart scoring all 5 forces 1-10',
+        wantsChart: 'radar (5 forces intensity score)'
+      },
+      {
+        key: 'demandResearch',
+        title: 'Chapter 9 — Demand Research',
+        subtopics: ['Google Search Demand', 'Seasonal Demand', 'Geographic Demand', 'Future Trends', 'Search Intent'],
+        wantsDiagram: false,
+        wantsChart: 'line (12-month seasonal search demand index)'
+      },
+      {
+        key: 'keywordResearch',
+        title: 'Chapter 10 — Keyword Research',
+        subtopics: ['High Volume Keywords', 'Low Competition Keywords', 'Informational', 'Commercial Keywords', 'Buyer Intent Keywords', 'Competitor Keywords', 'SEO Opportunity Mapping'],
+        wantsDiagram: false,
+        wantsChart: 'bar (top 8-10 keywords by monthly search volume)'
+      },
+      {
+        key: 'locationResearch',
+        title: 'Chapter 11 — Location Research',
+        subtopics: ['Best City', 'Best State', 'Population', 'Income', 'Competition Density', 'Purchasing Power', 'Logistics'],
+        wantsDiagram: false,
+        wantsChart: 'bar (top candidate cities scored on opportunity)'
+      }
+    ]
+  },
+  {
+    volume: 3,
+    key: 'volume3',
+    title: 'Competitor Intelligence',
+    subtitle: 'Deep competitor mapping across web, SEO, social, ads, pricing & reviews',
+    chapters: [
+      {
+        key: 'competitorIdentification',
+        title: 'Chapter 12 — Competitor Identification',
+        subtopics: ['Direct Competitors', 'Indirect Competitors', 'Hidden Competitors', 'Market Leaders', 'Startup Competitors'],
+        wantsDiagram: 'quadrantChart competitive landscape map (Price vs Quality/Features)',
+        wantsChart: false
+      },
+      {
+        key: 'websiteAnalysis',
+        title: 'Chapter 13 — Website Analysis',
+        subtopics: ['UX/UI', 'Site Speed', 'Conversion Elements', 'Navigation', 'Trust Signals'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'seoAnalysis',
+        title: 'Chapter 14 — SEO Analysis',
+        subtopics: ['Domain Authority', 'Backlinks', 'On-page SEO', 'Ranking Keywords', 'Content Gaps'],
+        wantsDiagram: false,
+        wantsChart: 'bar (competitor SEO visibility / ranking keyword count comparison)'
+      },
+      {
+        key: 'socialMediaAnalysis',
+        title: 'Chapter 15 — Social Media Analysis',
+        subtopics: ['Follower Count', 'Engagement Rate', 'Content Strategy', 'Posting Frequency', 'Platform Mix'],
+        wantsDiagram: false,
+        wantsChart: 'bar (follower count comparison across competitors)'
+      },
+      {
+        key: 'paidAdsAnalysis',
+        title: 'Chapter 16 — Paid Ads Analysis',
+        subtopics: ['Ad Platforms Used', 'Ad Creative Themes', 'Estimated Spend', 'Landing Pages', 'Offer Strategy'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'pricingAnalysis',
+        title: 'Chapter 17 — Competitor Pricing Analysis',
+        subtopics: ['Price Points', 'Discounting Patterns', 'Bundling', 'Value Perception'],
+        wantsDiagram: false,
+        wantsChart: 'bar (price comparison across top competitors)'
+      },
+      {
+        key: 'productUspAnalysis',
+        title: 'Chapter 18 — Product & USP Analysis',
+        subtopics: ['Feature Comparison', 'Differentiation', 'Gaps to Exploit'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'customerReviewMining',
+        title: 'Chapter 19 — Customer Review Mining',
+        subtopics: ['Common Complaints', 'Loved Features', 'Sentiment Trend', 'Unmet Needs'],
+        wantsDiagram: false,
+        wantsChart: 'pie (review sentiment split: positive/neutral/negative)'
+      }
+    ]
+  },
+  {
+    volume: 4,
+    key: 'volume4',
+    title: 'Operations, Finance & Growth',
+    subtitle: 'Financial modelling, marketing, sales, tech, legal, risk & execution roadmap',
+    chapters: [
+      {
+        key: 'financialResearch',
+        title: 'Chapter 20 — Financial Research',
+        subtopics: ['Initial Investment', 'Fixed Cost', 'Variable Cost', 'Gross Margin', 'Net Margin', 'CAC', 'LTV', 'Break Even Point', 'ROI'],
+        wantsDiagram: false,
+        wantsChart: 'pie (cost breakdown: fixed vs variable vs marketing vs other)'
+      },
+      {
+        key: 'marketingResearch',
+        title: 'Chapter 21 — Marketing Research',
+        subtopics: ['Organic Marketing', 'SEO', 'Social Media', 'Influencer Marketing', 'Paid Ads', 'Referral', 'Email Marketing', 'Affiliate Marketing'],
+        wantsDiagram: false,
+        wantsChart: 'pie (recommended budget allocation across channels)'
+      },
+      {
+        key: 'salesResearch',
+        title: 'Chapter 22 — Sales Research',
+        subtopics: ['Sales Funnel', 'Lead Generation', 'Lead Qualification', 'Conversion Rate', 'Closing Strategy'],
+        wantsDiagram: 'funnel flowchart (Awareness -> Lead -> MQL -> SQL -> Customer)',
+        wantsChart: false
+      },
+      {
+        key: 'technologyStack',
+        title: 'Chapter 23 — Technology Research',
+        subtopics: ['Website', 'Mobile App', 'CRM', 'ERP', 'AI Tools', 'Automation'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'legalCompliance',
+        title: 'Chapter 24 — Legal Research',
+        subtopics: ['Company Registration', 'GST', 'Trademark', 'Copyright', 'Patent', 'Licenses'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'riskAnalysis',
+        title: 'Chapter 25 — Risk Analysis',
+        subtopics: ['Market Risk', 'Operational Risk', 'Financial Risk', 'Technology Risk', 'Legal Risk'],
+        wantsDiagram: 'a 5x5 risk matrix (Likelihood vs Impact) plotting each risk',
+        wantsChart: false
+      },
+      {
+        key: 'executionRoadmap',
+        title: 'Chapter 26 — Execution Roadmap',
+        subtopics: ['30 Days', '60 Days', '90 Days', '180 Days', '1 Year'],
+        wantsDiagram: 'timeline/gantt-style flowchart across 30/60/90/180/365 day milestones',
+        wantsChart: false
+      }
+    ]
+  },
+  {
+    volume: 5,
+    key: 'volume5',
+    title: 'Toolkit & AI Assets',
+    subtitle: 'Ready-to-use templates, AI prompt library & bonus brand assets',
+    chapters: [
+      {
+        key: 'templatesLibrary',
+        title: 'Chapter 27 — 100+ Ready-to-use Templates',
+        subtopics: ['SWOT Template', 'Customer Persona', 'Interview Questions', 'Survey', 'Competitor Tracker', 'Pricing Sheet', 'Financial Sheet', 'Market Size Calculator', 'Business Canvas', 'Lean Canvas', 'Validation Checklist', 'Go/No-Go Scorecard'],
+        wantsDiagram: false,
+        wantsChart: false
+      },
+      {
+        key: 'aiPromptLibrary',
+        title: 'Chapter 28 — AI Prompt Library',
+        subtopics: ['Business Validation Prompts', 'Competitor Research Prompts', 'SEO Prompts', 'Marketing Prompts', 'Finance Prompts', 'Customer Research Prompts', 'Investor Pitch Prompts'],
+        wantsDiagram: false,
+        wantsChart: false
+      }
+    ],
+    // Volume 5 also produces the bonus brand-asset block (not a numbered chapter)
+    hasBonusAssets: true
+  }
+];
+
+export const ALL_CHAPTER_KEYS = REPORT_STRUCTURE.flatMap(v => v.chapters.map(c => c.key));
+
+/**
+ * ==========================================================================
+ * SCHEMA BUILDER
+ * ==========================================================================
+ * Every chapter comes back as an array item (NOT a dynamic object key) so
+ * that Gemini's structured-output schema stays simple & reliable. We remap
+ * the array -> { [chapterKey]: section } after parsing.
+ * ==========================================================================
+ */
+const CHAPTER_ITEM_SCHEMA = {
   type: 'OBJECT',
   properties: {
+    key: { type: 'STRING', description: 'Must exactly match the chapter key given in the prompt.' },
     title: { type: 'STRING' },
-    content: { type: 'STRING' },
+    content: { type: 'STRING', description: 'Full markdown content: headings for each subtopic, tables where useful, at least 300-500 words of real researched analysis.' },
+    diagram: {
+      type: 'OBJECT',
+      description: 'Optional. Only fill if a visual diagram genuinely helps this chapter.',
+      properties: {
+        type: { type: 'STRING', description: "Mermaid diagram type, e.g. 'flowchart TD', 'quadrantChart'" },
+        mermaidCode: { type: 'STRING', description: 'Full valid Mermaid.js syntax, ready to render as-is.' },
+        caption: { type: 'STRING' }
+      }
+    },
+    charts: {
+      type: 'ARRAY',
+      description: 'Optional. 0-2 charts with REAL, chapter-specific numeric data (not placeholders like "X" or "Y").',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          type: { type: 'STRING', description: "'bar' | 'line' | 'pie' | 'radar'" },
+          title: { type: 'STRING' },
+          labels: { type: 'ARRAY', items: { type: 'STRING' } },
+          datasets: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                label: { type: 'STRING' },
+                data: { type: 'ARRAY', items: { type: 'NUMBER' } }
+              },
+              required: ['label', 'data']
+            }
+          }
+        },
+        required: ['type', 'title', 'labels', 'datasets']
+      }
+    },
+    imageSuggestions: {
+      type: 'ARRAY',
+      description: '1-2 short descriptive search queries for royalty-free reference images relevant to this chapter (e.g. "modern bakery storefront interior").',
+      items: { type: 'STRING' }
+    },
     recommendations: {
       type: 'ARRAY',
       items: {
@@ -18,8 +321,8 @@ const sectionSchema = {
           title: { type: 'STRING' },
           why: { type: 'STRING' },
           how: { type: 'STRING' },
-          impact: { type: 'STRING' }, // High, Medium, Low
-          difficulty: { type: 'STRING' }, // High, Medium, Low
+          impact: { type: 'STRING', description: 'High / Medium / Low' },
+          difficulty: { type: 'STRING', description: 'High / Medium / Low' },
           cost: { type: 'STRING' },
           timeframe: { type: 'STRING' }
         },
@@ -30,742 +333,274 @@ const sectionSchema = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: {
-          type: { type: 'STRING' }, // "source" or "assumption"
-          label: { type: 'STRING' }
-        },
+        properties: { type: { type: 'STRING' }, label: { type: 'STRING' } },
         required: ['type', 'label']
-      }
-    },
-    tableData: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          label: { type: 'STRING' },
-          value: { type: 'STRING' }
-        }
-      }
-    },
-    chartData: {
-      type: 'OBJECT',
-      properties: {
-        labels: { type: 'ARRAY', items: { type: 'STRING' } },
-        values: { type: 'ARRAY', items: { type: 'NUMBER' } }
       }
     }
   },
-  required: ['title', 'content', 'recommendations', 'trustIndicators']
+  required: ['key', 'title', 'content', 'recommendations', 'trustIndicators']
+};
+
+function buildVolumeSchema() {
+  return {
+    type: 'OBJECT',
+    properties: {
+      sections: { type: 'ARRAY', items: CHAPTER_ITEM_SCHEMA }
+    },
+    required: ['sections']
+  };
+}
+
+const BONUS_ASSETS_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    mission: { type: 'STRING' },
+    vision: { type: 'STRING' },
+    uvp: { type: 'STRING' },
+    elevatorPitch: { type: 'STRING' },
+    investorPitch: { type: 'STRING' },
+    businessCanvas: {
+      type: 'OBJECT',
+      properties: {
+        keyPartners: { type: 'STRING' },
+        keyActivities: { type: 'STRING' },
+        keyResources: { type: 'STRING' },
+        valuePropositions: { type: 'STRING' },
+        customerRelationships: { type: 'STRING' },
+        channels: { type: 'STRING' },
+        customerSegments: { type: 'STRING' },
+        costStructure: { type: 'STRING' },
+        revenueStreams: { type: 'STRING' }
+      }
+    }
+  },
+  required: ['mission', 'vision', 'uvp', 'elevatorPitch', 'investorPitch', 'businessCanvas']
 };
 
 /**
- * Builds the comprehensive intake metadata string
+ * ==========================================================================
+ * PROMPT BUILDER
+ * ==========================================================================
  */
-function buildBusinessMetadata(details) {
+function buildVolumePrompt(volume, details) {
+  const chapterList = volume.chapters.map(c =>
+    `- key: "${c.key}" | ${c.title}\n  Subtopics to cover in depth: ${c.subtopics.join(', ')}\n  ${c.wantsDiagram ? `Include a diagram: ${c.wantsDiagram}` : ''}\n  ${c.wantsChart ? `Include a chart: ${c.wantsChart}` : ''}`
+  ).join('\n\n');
+
   return `
---- BUSINESS IDENTITY ---
-Name: ${details.businessName}
-Idea: ${details.businessIdea || 'N/A'}
-Category: ${details.businessCategory || 'N/A'}
+You are a McKinsey-grade market research consultant producing "Volume ${volume.volume} — ${volume.title}" of a full business research report.
+
+BUSINESS CONTEXT
+Business Name: ${details.businessName}
 Industry: ${details.industry}
-Description: ${details.businessDescription || details.description || 'N/A'}
-Model: ${details.businessModel}
-Stage: ${details.businessStage || details.stage || 'N/A'}
-Website: ${details.websiteUrl || details.website || 'N/A'}
-
---- GEOGRAPHY & LOGISTICS ---
-Target Country: ${details.targetCountry || 'N/A'}
-Target State: ${details.targetState || 'N/A'}
-Target City: ${details.targetCity || 'N/A'}
-Language: ${details.targetLanguage || 'N/A'}
-Geo Location: ${details.geoLocation || 'N/A'}
-Urban/Rural: ${details.urbanRural || 'N/A'}
-
---- TARGET AUDIENCE ---
-Audience Profile: ${details.targetAudience}
-Age Group: ${details.ageGroup || 'N/A'}
-Gender: ${details.gender || 'N/A'}
-Income Level: ${details.income || 'N/A'}
-Education: ${details.education || 'N/A'}
-Occupation: ${details.occupation || 'N/A'}
-Interests: ${details.interests || 'N/A'}
-Pain Points: ${details.painPoints || 'N/A'}
-Buying Behaviour: ${details.buyingBehaviour || 'N/A'}
-Customer Goals: ${details.customerGoals || 'N/A'}
-
---- PRODUCTS & FINANCIALS ---
-Products: ${details.products}
-Services: ${details.services || 'N/A'}
-Price Range: ${details.priceRange || 'N/A'}
-Unique Value Proposition: ${details.usp || 'N/A'}
-Competitors Configured: ${(details.competitors || []).join(', ') || 'N/A'}
-Operational Budget: ${details.budget || 'N/A'}
-Expected Revenue: ${details.expectedRevenue || 'N/A'}
+Offering / Products: ${details.products}
+Business Model: ${details.businessModel}
+Business Stage: ${details.businessStage}
+Target Country/City: ${details.targetCity || ''}, ${details.targetState || ''}, ${details.targetCountry}
+Target Audience: ${details.targetAudience}
 Marketing Budget: ${details.marketingBudget}
-`;
+Description: ${details.businessDescription}
+
+TASK
+Use web/search grounding to research REAL, current, industry-specific data (market sizes, CAGR %, real competitor names, real pricing, real keyword volumes wherever possible). Do not use generic placeholder numbers — ground every figure in the actual industry/geography given above.
+
+Produce ALL of the following chapters for this volume. Do NOT skip any chapter and do NOT summarize/shorten to save space — every chapter must be complete, detailed (300-500+ words of real content), and self-contained:
+
+${chapterList}
+
+For every chapter:
+1. Write full markdown content, organized by the subtopics listed, with tables where numeric comparisons help.
+2. Only include a "diagram" (Mermaid.js code) if noted above, and make sure the Mermaid syntax is 100% valid and renderable.
+3. Only include "charts" if noted above, with REAL researched numbers (never invented round numbers like 10/20/30 unless genuinely accurate).
+4. Give 2-4 imageSuggestions (short descriptive search phrases) that would visually complement the chapter.
+5. Give 3-5 recommendations per chapter with clear why/how/impact/difficulty/cost/timeframe.
+6. Give 1-3 trustIndicators citing what grounded the section (e.g. "source: industry report", "source: search grounding").
+
+Return ONLY the JSON object matching the required schema. No markdown fences, no preamble.
+`.trim();
+}
+
+function buildBonusAssetsPrompt(details) {
+  return `
+You are a brand strategist. Based on this business, produce a concise, punchy set of brand assets:
+Business Name: ${details.businessName}
+Industry: ${details.industry}
+Offering: ${details.products}
+Target Audience: ${details.targetAudience}
+Description: ${details.businessDescription}
+
+Return ONLY JSON matching the schema: mission, vision, uvp (unique value proposition), elevatorPitch (2-3 sentences), investorPitch (McKinsey-standard, 4-6 sentences), and a full 9-block businessCanvas.
+`.trim();
 }
 
 /**
- * Helper to call Gemini model with structured JSON schema
+ * ==========================================================================
+ * REAL-TIME GENERATION (Gemini + Google Search grounding)
+ * ==========================================================================
+ * Each volume is ONE independent Gemini call. This is the key fix for data
+ * loss: instead of one giant 28-chapter call (which risks truncation /
+ * missed chapters), we ask for ~5-8 chapters per call, matching a
+ * comfortable output-token budget.
+ * ==========================================================================
  */
-async function callGemini(prompt, schema, useSearch = false) {
-  if (!ai) {
-    throw new Error("Gemini Client not initialized due to missing API Key.");
-  }
+export async function generateVolume(volumeNumber, details) {
+  if (!ai) throw new Error('GEMINI_API_KEY not configured');
 
-  const config = {
-    responseMimeType: 'application/json',
-    responseSchema: schema
-  };
+  const volume = REPORT_STRUCTURE.find(v => v.volume === volumeNumber);
+  if (!volume) throw new Error(`Unknown volume number: ${volumeNumber}`);
 
-  if (useSearch) {
-    config.tools = [{ googleSearch: {} }];
-  }
+  const prompt = buildVolumePrompt(volume, details);
 
   const response = await ai.models.generateContent({
-    model: modelName,
+    model: MODEL,
     contents: prompt,
-    config
+    config: {
+      tools: [{ googleSearch: {} }],
+      responseMimeType: 'application/json',
+      responseSchema: buildVolumeSchema()
+    }
+  });
+
+  const parsed = JSON.parse(response.text);
+
+  // Safety net: make sure every expected chapter key came back.
+  const expectedKeys = volume.chapters.map(c => c.key);
+  const returnedKeys = (parsed.sections || []).map(s => s.key);
+  const missingKeys = expectedKeys.filter(k => !returnedKeys.includes(k));
+
+  const sectionsByKey = {};
+  (parsed.sections || []).forEach(s => { sectionsByKey[s.key] = s; });
+
+  // Fill any missing chapter with a mock so the report never has a hole.
+  if (missingKeys.length > 0) {
+    console.warn(`Volume ${volumeNumber}: Gemini missed chapters [${missingKeys.join(', ')}], patching with fallback content.`);
+    const mockVolume = generateMockVolume(volumeNumber, details);
+    missingKeys.forEach(k => { sectionsByKey[k] = mockVolume.sections[k]; });
+  }
+
+  let bonusAssets = null;
+  if (volume.hasBonusAssets) {
+    try {
+      const bonusResponse = await ai.models.generateContent({
+        model: MODEL,
+        contents: buildBonusAssetsPrompt(details),
+        config: { responseMimeType: 'application/json', responseSchema: BONUS_ASSETS_SCHEMA }
+      });
+      bonusAssets = JSON.parse(bonusResponse.text);
+    } catch (e) {
+      console.error('Bonus asset generation failed, using fallback:', e);
+      bonusAssets = generateMockBonusAssets(details);
+    }
+  }
+
+  return { sections: sectionsByKey, bonusAssets };
+}
+
+/**
+ * Regenerate a single chapter/section (used by the "Regenerate Section" button).
+ */
+export async function regenerateChapter(volumeNumber, chapterKey, details, currentSection, modifier) {
+  const volume = REPORT_STRUCTURE.find(v => v.volume === volumeNumber);
+  const chapterMeta = volume?.chapters.find(c => c.key === chapterKey);
+  if (!ai || !chapterMeta) throw new Error('Cannot regenerate: missing AI client or chapter metadata');
+
+  const prompt = `
+You are an expert McKinsey consultant. Regenerate ONLY the "${chapterMeta.title}" chapter (key: "${chapterKey}") for:
+Business Name: ${details.businessName}
+Industry: ${details.industry}
+Offering: ${details.products}
+Target Audience: ${details.targetAudience}
+Description: ${details.businessDescription}
+
+Subtopics to cover: ${chapterMeta.subtopics.join(', ')}
+${chapterMeta.wantsDiagram ? `Include a diagram: ${chapterMeta.wantsDiagram}` : ''}
+${chapterMeta.wantsChart ? `Include a chart: ${chapterMeta.wantsChart}` : ''}
+
+Current title: ${currentSection?.title || chapterMeta.title}
+Modification instruction: "${modifier || 'Provide a fresh, more detailed strategic perspective with newer data.'}"
+
+Return ONLY JSON for a single chapter matching the schema (key, title, content, diagram?, charts?, imageSuggestions?, recommendations, trustIndicators).
+`.trim();
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: prompt,
+    config: { tools: [{ googleSearch: {} }], responseMimeType: 'application/json', responseSchema: CHAPTER_ITEM_SCHEMA }
   });
 
   return JSON.parse(response.text);
 }
 
 /**
- * MODULE 1: Executive & Industry Analysis
+ * ==========================================================================
+ * MOCK / FALLBACK GENERATORS (no API key, or API failure)
+ * ==========================================================================
  */
-export async function generateModule1(details) {
-  const metadata = buildBusinessMetadata(details);
-  const prompt = `
-You are a Market Research Expert and Startup Consultant from a top-tier firm like McKinsey.
-Based on the following intake data, perform deep research on the target industry and compile Module 1: Executive & Industry Analysis.
+export function generateMockVolume(volumeNumber, details) {
+  const volume = REPORT_STRUCTURE.find(v => v.volume === volumeNumber);
+  const sections = {};
 
-${metadata}
-
-Use Google Search Grounding to find actual stats, industry sizes, market growth rates, and trends for ${details.industry} in ${details.targetCountry || 'global markets'} for 2026.
-
-You must reply with a structured JSON document containing exactly these keys:
-1. "businessSummary": High-level synthesis of what the business does, its model, and strategy.
-2. "executiveSummary": Strategic audit summary, main challenges, and key paths forward.
-3. "marketSize": TAM, SAM, SOM calculations based on target demographics. MUST include a 'chartData' object with labels: ["TAM", "SAM", "SOM"] and values representing estimated currency amounts in USD.
-4. "industryOverview": Narrative overview of the industry sector, regulations, and macro environment.
-5. "industryGrowthRate": Growth rate stats and forecasts (CAGR). MUST include a 'chartData' object representing yearly growth rates or market volumes.
-6. "currentTrends": Key technology, consumer behavior, and operational trends in the sector.
-7. "futureTrends": 5-10 year outlook, disruptive technologies, or shift predictions.
-8. "marketDemand": Evidence of demand for this business idea, search trends, or category interest.
-9. "marketGap": Analysis of what current industry players are missing and how this business fills it.
-
-Formatting Rules:
-- Content fields should be in highly detailed, professional markdown format (with headers, lists, and clear text).
-- Include realistic recommendations and citations in trustIndicators (e.g. citing real sources if grounding tools are used, or mapping assumptions).
-`;
-
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      businessSummary: sectionSchema,
-      executiveSummary: sectionSchema,
-      marketSize: sectionSchema,
-      industryOverview: sectionSchema,
-      industryGrowthRate: sectionSchema,
-      currentTrends: sectionSchema,
-      futureTrends: sectionSchema,
-      marketDemand: sectionSchema,
-      marketGap: sectionSchema
-    },
-    required: ['businessSummary', 'executiveSummary', 'marketSize', 'industryOverview', 'industryGrowthRate', 'currentTrends', 'futureTrends', 'marketDemand', 'marketGap']
-  };
-
-  return callGemini(prompt, schema, true);
-}
-
-/**
- * MODULE 2: Customer & Competitive Intelligence
- */
-export async function generateModule2(details) {
-  const metadata = buildBusinessMetadata(details);
-  const prompt = `
-You are a Customer Persona Researcher and Competitive Intelligence Analyst.
-Analyze the intake data and generate Module 2: Customer & Competitive Intelligence.
-
-${metadata}
-
-Use Google Search Grounding to audit competitors in the ${details.industry} space, identifying top active players, their pricing models, and key weaknesses.
-
-You must reply with a structured JSON document containing exactly these keys:
-1. "customerPersona": A detailed customer profile based on target audience variables.
-2. "customerProblems": Core friction points, challenges, and frustrations they experience.
-3. "customerNeeds": Essential emotional and functional needs they look to satisfy.
-4. "buyingBehaviour": How they research products, decision-making speed, and trigger events.
-5. "swotAnalysis": Strengths, Weaknesses, Opportunities, and Threats analysis.
-6. "pestleAnalysis": Political, Economic, Social, Technological, Environmental, and Legal audit factors.
-7. "competitorResearch": Analysis of direct/indirect competitors. Include detailed profiles (products, pricing, website, strengths, weaknesses, traffic estimate, marketing strategies, SEO keywords, social channels, USP, and business model). Represent competitor names in tables.
-
-Formatting Rules:
-- Write comprehensive, McKinsey-style analysis.
-- Include recommendations for acquisition and positioning.
-`;
-
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      customerPersona: sectionSchema,
-      customerProblems: sectionSchema,
-      customerNeeds: sectionSchema,
-      buyingBehaviour: sectionSchema,
-      swotAnalysis: sectionSchema,
-      pestleAnalysis: sectionSchema,
-      competitorResearch: sectionSchema
-    },
-    required: ['customerPersona', 'customerProblems', 'customerNeeds', 'buyingBehaviour', 'swotAnalysis', 'pestleAnalysis', 'competitorResearch']
-  };
-
-  return callGemini(prompt, schema, true);
-}
-
-/**
- * MODULE 3: Keyword, Content & Marketing Playbooks
- */
-export async function generateModule3(details) {
-  const metadata = buildBusinessMetadata(details);
-  const prompt = `
-You are an SEO Expert and Digital Marketing Consultant.
-Analyze the business details and compile Module 3: Keyword, Content & Marketing Playbooks.
-
-${metadata}
-
-Use Google Search Grounding to research search terms, search volumes, and ad channel metrics related to ${details.industry}.
-
-You must reply with a structured JSON document containing exactly these keys:
-1. "keywordResearch": Specific search keywords, search intent (informational, commercial, local), search volume estimates, and long-tail recommendations. Provide keyword data in a table structure.
-2. "seoStrategy": Actionable guides for On-Page, Off-Page, Technical SEO, Content Silos, and Backlink strategies.
-3. "socialMediaStrategy": Target playbooks and messaging patterns for: Instagram, Facebook, LinkedIn, YouTube, Pinterest, X, and Threads.
-4. "contentMarketingPlan": Highly creative editorial strategy containing Blog Ideas, Reels formats, LinkedIn posts, and Email campaigns.
-5. "paidAdsStrategy": Complete playbooks for Google Ads, Meta Ads, LinkedIn Ads, YouTube Ads, with budget recommendations and target demographics.
-
-Formatting Rules:
-- Include lists of concrete content formats and copy titles.
-- Recommendations must be hyper-specific and metric-driven.
-`;
-
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      keywordResearch: sectionSchema,
-      seoStrategy: sectionSchema,
-      socialMediaStrategy: sectionSchema,
-      contentMarketingPlan: sectionSchema,
-      paidAdsStrategy: sectionSchema
-    },
-    required: ['keywordResearch', 'seoStrategy', 'socialMediaStrategy', 'contentMarketingPlan', 'paidAdsStrategy']
-  };
-
-  return callGemini(prompt, schema, true);
-}
-
-/**
- * MODULE 4: Pricing, Sales & Operational Growth
- */
-export async function generateModule4(details) {
-  const metadata = buildBusinessMetadata(details);
-  const prompt = `
-You are a Business Strategist and Growth Marketer.
-Generate Module 4: Pricing, Sales & Operational Growth based on the business details.
-
-${metadata}
-
-You must reply with a structured JSON document containing exactly these keys:
-1. "pricingStrategy": Recommended pricing tiers, standard discounts, subscription versus transaction, AOV optimization, and competitive benchmarking.
-2. "salesStrategy": Sales process, objection handling, follow-up flows, and pipeline stages.
-3. "customerAcquisition": CAC optimization, organic referrals, partnerships, and viral loop design.
-4. "retentionStrategy": LTV expansion, customer success playbooks, loyalty loops, and churn mitigation steps.
-5. "growthStrategy": Expansion roadmaps, partnership frameworks, product extensions, and franchise/licensing analysis.
-6. "goToMarketStrategy": Step-by-step launch sequencing, positioning pitch, and channel priority checklists.
-
-Formatting Rules:
-- Create professional, BCG/Bain style structures.
-- Detail exactly how the business should monetize and optimize margin health.
-`;
-
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      pricingStrategy: sectionSchema,
-      salesStrategy: sectionSchema,
-      customerAcquisition: sectionSchema,
-      retentionStrategy: sectionSchema,
-      growthStrategy: sectionSchema,
-      goToMarketStrategy: sectionSchema
-    },
-    required: ['pricingStrategy', 'salesStrategy', 'customerAcquisition', 'retentionStrategy', 'growthStrategy', 'goToMarketStrategy']
-  };
-
-  return callGemini(prompt, schema, false);
-}
-
-/**
- * MODULE 5: Roadmaps, Risks, Scoring & Financial Overview
- */
-export async function generateModule5(details) {
-  const metadata = buildBusinessMetadata(details);
-  const prompt = `
-You are a Venture Capital Analyst and Financial Consultant.
-Analyze the business details and compile Module 5: Roadmaps, Risks, Scoring & Financial Overview.
-
-${metadata}
-
-Perform calculations based on target demographics and budgets to outline financial and scoring indicators.
-
-You must reply with a structured JSON document containing exactly these keys:
-1. "businessRisks": Top financial, operational, and technical risks, with mitigation strategies.
-2. "investmentRequirement": Capital needed to start/scale, allocation breakdown, and runways.
-3. "revenueModel": Monetization channels, assumptions, margins, and projected transaction volumes.
-4. "launchChecklist": Operational checkmarks for pre-launch, launch, and post-launch.
-5. "actionPlan90Day": High-conviction, week-by-week checklist for the first 90 days.
-6. "oneYearRoadmap": Month-by-month growth milestones.
-7. "aiRecommendations": Immediate options for using AI tools and bots to automate marketing, support, and sales.
-8. "businessScore": Overall rating out of 100, highlighting main drivers. MUST include a 'chartData' object with categories and numerical scores.
-9. "successProbability": Assessment (Low, Med, High) with percentage and explanation.
-10. "estimatedCompetitionLevel": Score (1-10) with analysis of market density.
-11. "estimatedDifficultyLevel": Score (1-10) with operational challenges.
-12. "estimatedRoi": Expected return on investment and breakeven timeline.
-13. "marketOpportunityScore": Score (1-100) reflecting target market suitability.
-14. "finalConclusion": Concluding guidance from the consulting team.
-
-Formatting Rules:
-- Provide highly descriptive, investor-ready summaries.
-- Keep numbers logical and grounded in industry norms.
-`;
-
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      businessRisks: sectionSchema,
-      investmentRequirement: sectionSchema,
-      revenueModel: sectionSchema,
-      launchChecklist: sectionSchema,
-      actionPlan90Day: sectionSchema,
-      oneYearRoadmap: sectionSchema,
-      aiRecommendations: sectionSchema,
-      businessScore: sectionSchema,
-      successProbability: sectionSchema,
-      estimatedCompetitionLevel: sectionSchema,
-      estimatedDifficultyLevel: sectionSchema,
-      estimatedRoi: sectionSchema,
-      marketOpportunityScore: sectionSchema,
-      finalConclusion: sectionSchema
-    },
-    required: [
-      'businessRisks', 'investmentRequirement', 'revenueModel', 'launchChecklist', 'actionPlan90Day', 'oneYearRoadmap',
-      'aiRecommendations', 'businessScore', 'successProbability', 'estimatedCompetitionLevel', 'estimatedDifficultyLevel',
-      'estimatedRoi', 'marketOpportunityScore', 'finalConclusion'
-    ]
-  };
-
-  return callGemini(prompt, schema, false);
-}
-
-/**
- * MODULE 6: Brand & Business Assets (Bonus Features)
- */
-export async function generateModule6(details) {
-  const metadata = buildBusinessMetadata(details);
-  const prompt = `
-You are a Branding Consultant, Product Manager, and Financial Advisor.
-Generate Module 6: Premium Brand & Business Assets containing all 27 bonus assets.
-
-${metadata}
-
-You must reply with a structured JSON document conforming EXACTLY to this schema:
-{
-  "businessNameGenerator": ["Name option 1", "Name option 2", "Name option 3", "Name option 4", "Name option 5"],
-  "domainSuggestions": ["domain1.com", "domain2.co", "domain3.io", "domain4.app"],
-  "logoIdeas": ["Logo description 1: color palette, icon layout", "Logo description 2"],
-  "brandColorSuggestions": ["#HEX1 - Primary Color", "#HEX2 - Secondary Color", "#HEX3 - Background Accent"],
-  "mission": "Core Mission Statement",
-  "vision": "Long term Vision Statement",
-  "taglineGenerator": ["Tagline 1", "Tagline 2", "Tagline 3"],
-  "uvp": "Unique Value Proposition summary",
-  "elevatorPitch": "30-second elevator pitch",
-  "investorPitch": "Investor pitch narrative (3 paragraphs)",
-  "pitchDeckOutline": "Slide-by-slide structure (Slides 1-10)",
-  "businessCanvas": {
-    "keyPartners": "Key partners list",
-    "keyActivities": "Key activities list",
-    "keyResources": "Key resources list",
-    "valuePropositions": "Value propositions",
-    "customerRelationships": "Relationship types",
-    "channels": "Channel list",
-    "customerSegments": "Segment description",
-    "costStructure": "Cost drivers",
-    "revenueStreams": "Revenue channels"
-  },
-  "leanCanvas": {
-    "problem": "Top 3 problems",
-    "solution": "Top 3 solutions",
-    "uniqueValueProposition": "Core UVP",
-    "unfairAdvantage": "Competitive advantage",
-    "customerSegments": "Target segments",
-    "keyMetrics": "KPIs to track",
-    "channels": "Launch channels",
-    "costStructure": "Fixed & variable costs",
-    "revenueStreams": "Pricing model & revenue streams"
-  },
-  "financialProjection": {
-    "year1Revenue": "$XXXXX",
-    "year2Revenue": "$XXXXX",
-    "year3Revenue": "$XXXXX",
-    "cogs": "Cost of Goods Sold description",
-    "margins": "Gross margin targets"
-  },
-  "breakEvenAnalysis": {
-    "fixedCosts": "Fixed expenses monthly",
-    "variableCostsPerUnit": "Variable expense per sale",
-    "sellingPricePerUnit": "AOV",
-    "breakEvenUnits": "Units needed monthly to break even",
-    "breakEvenRevenue": "Revenue threshold monthly"
-  },
-  "unitEconomics": {
-    "cac": "Customer Acquisition Cost range",
-    "clv": "Customer Lifetime Value range",
-    "paybackPeriod": "Months to recover CAC",
-    "marginPercent": "Gross margin percentage"
-  },
-  "customerJourney": {
-    "awareness": "How they discover the brand",
-    "consideration": "How they compare offerings",
-    "purchase": "Frictionless purchase steps",
-    "retention": "Retention loops and onboarding",
-    "advocacy": "Referral trigger points"
-  },
-  "buyerPersona": {
-    "demographics": "Age, occupation, city",
-    "interests": "Hobbies, reading lists, forums",
-    "goals": "Core goals",
-    "challenges": "Friction points"
-  },
-  "contentCalendar": [
-    { "week": 1, "topic": "Educational blog post on problem space", "channels": ["LinkedIn", "Instagram"] },
-    { "week": 2, "topic": "UVP comparison and competitor callout", "channels": ["YouTube", "Email"] }
-  ],
-  "emailCampaignIdeas": [
-    { "subject": "Welcome Offer + Core Problem solved", "intent": "Welcome sequence" },
-    { "subject": "Why legacy alternatives fail", "intent": "Nurture sequence" }
-  ],
-  "influencerStrategy": "Micro-influencer strategies and outreach templates",
-  "affiliateStrategy": "Commission splits and tracking templates",
-  "referralStrategy": "Refer-a-friend loop design and incentive programs",
-  "expansionStrategy": "Geographical expansion roadmap",
-  "localizationStrategy": "Language and local pricing templates",
-  "franchisePossibility": "Feasibility review of franchising the concept",
-  "exitStrategy": "IPO, acquisition, or buyout targets"
-}
-`;
-
-  const schema = {
-    type: 'OBJECT',
-    properties: {
-      businessNameGenerator: { type: 'ARRAY', items: { type: 'STRING' } },
-      domainSuggestions: { type: 'ARRAY', items: { type: 'STRING' } },
-      logoIdeas: { type: 'ARRAY', items: { type: 'STRING' } },
-      brandColorSuggestions: { type: 'ARRAY', items: { type: 'STRING' } },
-      mission: { type: 'STRING' },
-      vision: { type: 'STRING' },
-      taglineGenerator: { type: 'ARRAY', items: { type: 'STRING' } },
-      uvp: { type: 'STRING' },
-      elevatorPitch: { type: 'STRING' },
-      investorPitch: { type: 'STRING' },
-      pitchDeckOutline: { type: 'STRING' },
-      businessCanvas: {
-        type: 'OBJECT',
-        properties: {
-          keyPartners: { type: 'STRING' },
-          keyActivities: { type: 'STRING' },
-          keyResources: { type: 'STRING' },
-          valuePropositions: { type: 'STRING' },
-          customerRelationships: { type: 'STRING' },
-          channels: { type: 'STRING' },
-          customerSegments: { type: 'STRING' },
-          costStructure: { type: 'STRING' },
-          revenueStreams: { type: 'STRING' }
-        },
-        required: ['keyPartners', 'keyActivities', 'keyResources', 'valuePropositions', 'customerRelationships', 'channels', 'customerSegments', 'costStructure', 'revenueStreams']
-      },
-      leanCanvas: {
-        type: 'OBJECT',
-        properties: {
-          problem: { type: 'STRING' },
-          solution: { type: 'STRING' },
-          uniqueValueProposition: { type: 'STRING' },
-          unfairAdvantage: { type: 'STRING' },
-          customerSegments: { type: 'STRING' },
-          keyMetrics: { type: 'STRING' },
-          channels: { type: 'STRING' },
-          costStructure: { type: 'STRING' },
-          revenueStreams: { type: 'STRING' }
-        },
-        required: ['problem', 'solution', 'uniqueValueProposition', 'unfairAdvantage', 'customerSegments', 'keyMetrics', 'channels', 'costStructure', 'revenueStreams']
-      },
-      financialProjection: {
-        type: 'OBJECT',
-        properties: {
-          year1Revenue: { type: 'STRING' },
-          year2Revenue: { type: 'STRING' },
-          year3Revenue: { type: 'STRING' },
-          cogs: { type: 'STRING' },
-          margins: { type: 'STRING' }
-        },
-        required: ['year1Revenue', 'year2Revenue', 'year3Revenue', 'cogs', 'margins']
-      },
-      breakEvenAnalysis: {
-        type: 'OBJECT',
-        properties: {
-          fixedCosts: { type: 'STRING' },
-          variableCostsPerUnit: { type: 'STRING' },
-          sellingPricePerUnit: { type: 'STRING' },
-          breakEvenUnits: { type: 'STRING' },
-          breakEvenRevenue: { type: 'STRING' }
-        },
-        required: ['fixedCosts', 'variableCostsPerUnit', 'sellingPricePerUnit', 'breakEvenUnits', 'breakEvenRevenue']
-      },
-      unitEconomics: {
-        type: 'OBJECT',
-        properties: {
-          cac: { type: 'STRING' },
-          clv: { type: 'STRING' },
-          paybackPeriod: { type: 'STRING' },
-          marginPercent: { type: 'STRING' }
-        },
-        required: ['cac', 'clv', 'paybackPeriod', 'marginPercent']
-      },
-      customerJourney: {
-        type: 'OBJECT',
-        properties: {
-          awareness: { type: 'STRING' },
-          consideration: { type: 'STRING' },
-          purchase: { type: 'STRING' },
-          retention: { type: 'STRING' },
-          advocacy: { type: 'STRING' }
-        },
-        required: ['awareness', 'consideration', 'purchase', 'retention', 'advocacy']
-      },
-      buyerPersona: {
-        type: 'OBJECT',
-        properties: {
-          demographics: { type: 'STRING' },
-          interests: { type: 'STRING' },
-          goals: { type: 'STRING' },
-          challenges: { type: 'STRING' }
-        },
-        required: ['demographics', 'interests', 'goals', 'challenges']
-      },
-      contentCalendar: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            week: { type: 'INTEGER' },
-            topic: { type: 'STRING' },
-            channels: { type: 'ARRAY', items: { type: 'STRING' } }
-          },
-          required: ['week', 'topic', 'channels']
-        }
-      },
-      emailCampaignIdeas: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            subject: { type: 'STRING' },
-            intent: { type: 'STRING' }
-          },
-          required: ['subject', 'intent']
-        }
-      },
-      influencerStrategy: { type: 'STRING' },
-      affiliateStrategy: { type: 'STRING' },
-      referralStrategy: { type: 'STRING' },
-      expansionStrategy: { type: 'STRING' },
-      localizationStrategy: { type: 'STRING' },
-      franchisePossibility: { type: 'STRING' },
-      exitStrategy: { type: 'STRING' }
-    },
-    required: [
-      'businessNameGenerator', 'domainSuggestions', 'logoIdeas', 'brandColorSuggestions', 'mission', 'vision',
-      'taglineGenerator', 'uvp', 'elevatorPitch', 'investorPitch', 'pitchDeckOutline', 'businessCanvas',
-      'leanCanvas', 'financialProjection', 'breakEvenAnalysis', 'unitEconomics', 'customerJourney',
-      'buyerPersona', 'contentCalendar', 'emailCampaignIdeas', 'influencerStrategy', 'affiliateStrategy',
-      'referralStrategy', 'expansionStrategy', 'localizationStrategy', 'franchisePossibility', 'exitStrategy'
-    ]
-  };
-
-  return callGemini(prompt, schema, false);
-}
-
-/**
- * HIGH-QUALITY MOCK GENERATOR FALLBACK (Generates simulated data if API limits hit or offline)
- */
-export function generateDetailedMockReport(details) {
-  const name = details.businessName;
-  const ind = details.industry;
-  const prod = details.products;
-  const model = details.businessModel;
-
-  const makeMockSection = (title, content, recs = [], chart = null) => ({
-    title,
-    content,
-    recommendations: recs.length > 0 ? recs : [
-      {
-        title: `Execute foundational channel tests`,
-        why: `Initial stage businesses must validate channel-market fit before allocating heavy spend.`,
-        how: `Launch structured organic outlines and cold outreach campaigns to 50 prospective clients.`,
-        impact: 'High', difficulty: 'Low', cost: 'Free', timeframe: '14 days'
-      }
-    ],
-    trustIndicators: [
-      { type: 'assumption', label: `Heuristic market calculations based on ${details.businessStage || 'MVP'} parameters` }
-    ],
-    chartData: chart
+  volume.chapters.forEach(chapter => {
+    sections[chapter.key] = {
+      key: chapter.key,
+      title: chapter.title,
+      content: `### ${chapter.title}\n\n${chapter.subtopics.map(t => `**${t}:** Preliminary analysis for ${details.businessName} (${details.industry}) covering ${t.toLowerCase()}. Replace with live Gemini research once GEMINI_API_KEY is configured.`).join('\n\n')}`,
+      diagram: chapter.wantsDiagram ? {
+        type: 'flowchart TD',
+        mermaidCode: `flowchart TD\n  A[Start] --> B[${chapter.title.split('—')[1]?.trim() || 'Analysis'}]\n  B --> C[Insight]\n  C --> D[Action]`,
+        caption: `Illustrative diagram for ${chapter.title}`
+      } : null,
+      charts: chapter.wantsChart ? [{
+        type: chapter.wantsChart.split(' ')[0],
+        title: `${chapter.title} — Sample Data`,
+        labels: ['Segment A', 'Segment B', 'Segment C'],
+        datasets: [{ label: details.businessName, data: [40, 35, 25] }]
+      }] : [],
+      imageSuggestions: [`${details.industry} ${chapter.title.split('—')[1]?.trim() || ''}`.trim()],
+      recommendations: [{
+        title: `Strengthen ${chapter.title.split('—')[1]?.trim() || 'this area'}`,
+        why: 'Placeholder rationale — replace with live research.',
+        how: 'Placeholder implementation steps.',
+        impact: 'Medium', difficulty: 'Medium', cost: 'Low', timeframe: '2-4 weeks'
+      }],
+      trustIndicators: [{ type: 'assumption', label: 'Simulated fallback — GEMINI_API_KEY not active or request failed.' }]
+    };
   });
 
-  const sections = {
-    businessSummary: makeMockSection("Business Summary", `**${name}** operates a premium **${model}** business within the **${ind}** industry. The company offers **${prod}** designed to resolve core target audience gaps. Operations are tailored for early scaling based on localized market structures.`),
-    executiveSummary: makeMockSection("Executive Summary", `Comprehensive McKinsey-style strategic audit for **${name}**. To capture immediate market share, the business should optimize pricing tiers and initiate high-conviction keyword funnels. The market displays strong underlying demand, though initial brand awareness remains the primary bottleneck.`),
-    marketSize: makeMockSection("Market Size (TAM, SAM, SOM)", `TAM is estimated based on the total addressable consumer base in ${details.targetCountry || 'the country'}. SAM represents the target segment interested in digital-first alternatives, and SOM reflects the initial capture target over year 1.`, [], {
-      labels: ["TAM", "SAM", "SOM"],
-      values: [120000000, 30000000, 4500000]
-    }),
-    industryOverview: makeMockSection("Industry Overview", `The ${ind} sector is undergoing digital consolidations. Consumers expect seamless integrations and fast support. Regulatory concerns focus on local privacy frameworks, which must be built into operations.`),
-    industryGrowthRate: makeMockSection("Industry Growth Rate", `The industry exhibits a robust historical growth pattern. Standard forecasts project a stable CAGR of 8.2% through 2030, driven by customer habits and service upgrades.`, [], {
-      labels: ["2023", "2024", "2025", "2026", "2027", "2028 (Proj)"],
-      values: [4.8, 5.5, 6.2, 7.0, 7.8, 8.5]
-    }),
-    currentTrends: makeMockSection("Current Industry Trends", `1. Automation of service layers.\n2. Sustainable packaging and zero-carbon shipping footprints.\n3. Increased shift to mobile-first purchase pathways.`),
-    futureTrends: makeMockSection("Future Trends", `In the coming decade, we project deep AI integration in personalization, predictive inventory management, and localization of supply chains.`),
-    customerPersona: makeMockSection("Customer Persona", `Our primary target persona consists of tech-forward decision-makers seeking efficiency. They prioritize clear ROI benchmarks and responsive support systems.`),
-    customerProblems: makeMockSection("Customer Problems", `1. High initial setups.\n2. Lack of transparent pricing options.\n3. Confusing user interfaces in legacy products.`),
-    customerNeeds: makeMockSection("Customer Needs", `1. Direct value metrics.\n2. Fast integrations.\n3. Accessible customer success reps.`),
-    buyingBehaviour: makeMockSection("Buying Behaviour", `Purchases are triggered by operational bottlenecks. Decisions are made within 14-30 days, following online comparison review audits.`),
-    marketDemand: makeMockSection("Market Demand", `Search volumes for terms related to ${prod} have grown by 35% in the last 12 months, indicating a clear, growing consumer appetite.`),
-    marketGap: makeMockSection("Market Gap", `Legacy competitors focus on enterprise solutions, leaving SMBs and direct consumers underserved with high pricing walls.`),
-    opportunities: makeMockSection("Opportunities", `1. Untapped local search terms.\n2. Affiliate marketing relationships.\n3. Dynamic pricing models.`),
-    threats: makeMockSection("Threats", `1. Rising CPC costs across Google/Meta.\n2. Low switching barriers for consumers.`),
-    swotAnalysis: makeMockSection("SWOT Analysis", `- **Strengths**: Agile team, custom value offerings.\n- **Weaknesses**: Limited capital budget.\n- **Opportunities**: Rapid tech integrations.\n- **Threats**: Established competitors.`),
-    pestleAnalysis: makeMockSection("PESTLE Analysis", `- **Political**: Low compliance barriers.\n- **Economic**: Inflationary cost pressures on buyers.\n- **Social**: Growing preference for eco-conscious brands.\n- **Technological**: AI automation.\n- **Environmental**: Compliance checks.\n- **Legal**: GDPR / CCPA compliance.`),
-    competitorResearch: makeMockSection("Competitor Research", `Direct competitors include legacy brands. They utilize traditional sales teams and have slower feature update times, leaving a positioning space for ${name}.`),
-    keywordResearch: makeMockSection("Keyword Research", `Top search terms include: "${name} reviews", "${ind} pricing", and "best ${prod}". Local keyword intent is high.`),
-    seoStrategy: makeMockSection("SEO Strategy", `Establish technical SEO compliance, implement schema markup, and generate 10 blog hubs linking to conversion pages.`),
-    socialMediaStrategy: makeMockSection("Social Media Strategy", `Deploy expert-led LinkedIn posts and visual Instagram reels showing product applications.`),
-    contentMarketingPlan: makeMockSection("Content Marketing Plan", `Publish weekly case studies and distribute monthly newsletters highlighting operational cost reductions.`),
-    paidAdsStrategy: makeMockSection("Paid Ads Strategy", `Run retargeting ads on Meta and search ads on Google matching high-intent keywords.`),
-    pricingStrategy: makeMockSection("Pricing Strategy", `Implement a three-tier model: Starter (entry level), Professional (standard AOV), and Custom Enterprise.`),
-    salesStrategy: makeMockSection("Sales Strategy", `Provide interactive product walkthroughs and handle price objections by highlighting long-term ROI.`),
-    customerAcquisition: makeMockSection("Customer Acquisition", `Focus on organic content loops and cold outreach to targeted local lists.`),
-    retentionStrategy: makeMockSection("Retention Strategy", `Design a 14-day customer success onboarding flow and check in quarterly for upgrades.`),
-    businessRisks: makeMockSection("Business Risks", `Cash flow constraints and competitor advertising campaigns undercutting prices.`),
-    investmentRequirement: makeMockSection("Investment Requirement", `Requires $25,000 for launch setup and 6 months of operational runway.`),
-    revenueModel: makeMockSection("Revenue Model", `Subscription packages yielding a gross margin of 75%.`),
-    growthStrategy: makeMockSection("Growth Strategy", `Acquire early traction, scale to adjacent geographies, and launch white-label offerings.`),
-    goToMarketStrategy: makeMockSection("Go-To-Market Strategy", `Phase 1: Build organic SEO assets. Phase 2: Run micro-targeted PPC ads. Phase 3: Launch referral loops.`),
-    launchChecklist: makeMockSection("Launch Checklist", `- Connect payment gateways.\n- Verify GA4 tracking.\n- Publish privacy policy.\n- Load landing page email forms.`),
-    actionPlan90Day: makeMockSection("90-Day Action Plan", `- **Days 1-30**: Build assets and verify emails.\n- **Days 31-60**: Launch search ads.\n- **Days 61-90**: Roll out client referral systems.`),
-    oneYearRoadmap: makeMockSection("One-Year Roadmap", `- **Month 3**: Secure first 20 clients.\n- **Month 6**: Launch secondary product.\n- **Month 12**: Reach target revenue.`),
-    aiRecommendations: makeMockSection("AI Recommendations", `Deploy AI-powered support chat, automate email sequencing, and utilize LLMs for daily content drafting.`),
-    businessScore: makeMockSection("Business Score", `The business scores highly on market potential but requires initial brand equity building.`, [], {
-      labels: ["Market Demand", "Unit Economics", "Competition Risk", "Operational Feasibility"],
-      values: [85, 78, 65, 82]
-    }),
-    successProbability: makeMockSection("Success Probability", `Estimated success probability is 78%, backed by strong industry trends and high unit economics.`),
-    estimatedCompetitionLevel: makeMockSection("Estimated Competition Level", `Moderate. Primary competitors focus on general markets, leaving room for specialized local USPs.`),
-    estimatedDifficultyLevel: makeMockSection("Estimated Difficulty Level", `Low to Medium. Startup requirements are digital-first with low physical logistic footprints.`),
-    estimatedRoi: makeMockSection("Estimated ROI", `Breakeven projected in month 4, with 3x investment returns by year 2.`),
-    marketOpportunityScore: makeMockSection("Market Opportunity Score", `The Market Opportunity Score is 88/100, indicating high readiness for target segments.`),
-    finalConclusion: makeMockSection("Final Conclusion", `The proposed business showcases solid viability. Focus on immediate SEO keyword authority and clear value pricing to capture early customers.`)
-  };
+  return { sections };
+}
 
-  const bonusAssets = {
-    businessNameGenerator: [`${name} Peak`, `${name} Flow`, `Omni${name}`, `True${name}`, `${name} Logic`],
-    domainSuggestions: [`get${name.toLowerCase()}.com`, `${name.toLowerCase()}app.co`, `try${name.toLowerCase()}.io`],
-    logoIdeas: ["Minimalist sans-serif wordmark in slate gray", "Abstract circular logo signifying growth and sustainability"],
-    brandColorSuggestions: ["#4F46E5 - Royal Indigo", "#10B981 - Emerald Green", "#F8FAF8 - Light Pearl Accent"],
-    mission: `To empower target audience personas with reliable, premium, and sustainable ${prod} offerings.`,
-    vision: `To become the leading digital-first brand trusted globally in the ${ind} space.`,
-    taglineGenerator: ["Simplify your operations.", "The future of sustainability, today.", "Growth made effortless."],
-    uvp: `Premium, carbon-neutral ${prod} engineered for modern convenience.`,
-    elevatorPitch: `We help home businesses reduce friction and improve sustainability by delivering premium ${prod}. Unlike legacy players who use plastic wraps, our bamboo fiber solutions save money and the environment.`,
-    investorPitch: `${name} is entering the rapidly expanding ${ind} sector. Our focus is zero-waste domestic accessories. With initial capital, we will secure logistics lines, scale Meta ads, and capture 15% SOM in North America.`,
-    pitchDeckOutline: "Slide 1: Vision\nSlide 2: Problem\nSlide 3: Solution\nSlide 4: Product\nSlide 5: TAM/SAM\nSlide 6: Competition\nSlide 7: Business Model\nSlide 8: Financials\nSlide 9: Team\nSlide 10: Ask",
+export function generateMockBonusAssets(details) {
+  return {
+    mission: `To deliver ${details.products} that genuinely solve problems for ${details.targetAudience}.`,
+    vision: `To become a recognized name in ${details.industry} within ${details.targetCountry}.`,
+    uvp: `${details.businessName} stands out by focusing on ${details.targetAudience} with a ${details.businessModel} model.`,
+    elevatorPitch: `${details.businessName} helps ${details.targetAudience} with ${details.products}, solving real pain points in the ${details.industry} space.`,
+    investorPitch: `${details.businessName} is targeting a growing segment of ${details.targetAudience} in ${details.industry}. With a ${details.businessModel} approach and a ${details.marketingBudget} initial marketing budget, the business is positioned to capture early market share.`,
     businessCanvas: {
-      keyPartners: "Local logistics networks, raw bamboo suppliers",
-      keyActivities: "Manufacturing compliance, online marketing management",
-      keyResources: "Proprietary molds, Shopify ecommerce platforms",
-      valuePropositions: "Premium zero-waste household options",
-      customerRelationships: "Automated support chats, newsletter communities",
-      channels: "Direct D2C web portal, select retail boutiques",
-      customerSegments: "Eco-conscious millennial homeowners",
-      costStructure: "CPC marketing fees, raw logistics warehousing",
-      revenueStreams: "Transactional orders, monthly subscriptions"
-    },
-    leanCanvas: {
-      problem: "Eco-friendly goods are overpriced; packaging uses plastic; designs look cheap.",
-      solution: "Provide affordable, beautifully designed bamboo goods in zero-waste parcels.",
-      uniqueValueProposition: "Eco-friendly domestic accessories with high-end designer aesthetics.",
-      unfairAdvantage: "Direct factory relationships reducing costs by 30%.",
-      customerSegments: "Modern eco-focused homeowners aged 25-45.",
-      keyMetrics: "LTV/CAC ratio, monthly active subscriptions, return rates.",
-      channels: "Social Media Ads (Meta/Pinterest), SEO blog channels.",
-      costStructure: "Manufacturing materials, shipping fulfillment, ad acquisition.",
-      revenueStreams: "Single orders, quarterly kitchen refill subscriptions."
-    },
-    financialProjection: {
-      year1Revenue: "$120,000",
-      year2Revenue: "$350,000",
-      year3Revenue: "$850,000",
-      cogs: "Raw product cost: 22% of AOV",
-      margins: "Target gross margin of 78%"
-    },
-    breakEvenAnalysis: {
-      fixedCosts: "$3,500/mo",
-      variableCostsPerUnit: "$8.50",
-      sellingPricePerUnit: "$45.00",
-      breakEvenUnits: "96 units/mo",
-      breakEvenRevenue: "$4,320/mo"
-    },
-    unitEconomics: {
-      cac: "$14.00",
-      clv: "$135.00",
-      paybackPeriod: "3 months",
-      marginPercent: "78%"
-    },
-    customerJourney: {
-      awareness: "Sees visual Instagram ad highlighting plastic-free packaging.",
-      consideration: "Reads comparison article showing bamboo lifespan vs paper.",
-      purchase: "Signs up for 10% first-order discount and checks out.",
-      retention: "Receives onboarding recycling guide emails.",
-      advocacy: "Shares referral code on social media to earn store credits."
-    },
-    buyerPersona: {
-      demographics: "Sarah, 32, Marketing Director, San Francisco",
-      interests: "Organic cooking, home organizing blogs, hiking",
-      goals: "Minimize household waste, support local eco-brands",
-      challenges: "Busy schedule leaves little time to research options"
-    },
-    contentCalendar: [
-      { week: 1, topic: "The hidden plastics in your kitchen tools", channels: ["Instagram", "Pinterest"] },
-      { week: 2, topic: "How switching to bamboo saves $200 a year", channels: ["Email", "Blog"] }
-    ],
-    emailCampaignIdeas: [
-      { subject: "Ditch the paper: here is 10% off EcoSphere", intent: "Welcome Flow" },
-      { subject: "Sarah, your kitchen deserves this upgrade", intent: "Cart Abandonment Flow" }
-    ],
-    influencerStrategy: "Partner with micro-influencers in home design and sustainable living niches, sending free starter bundles for review reels.",
-    affiliateStrategy: "Offer lifestyle bloggers 12% commission on all referred sales with 30-day tracking cookies.",
-    referralStrategy: "Refer a friend: both get $10 credit when they place their first subscription order.",
-    expansionStrategy: "Expand shipping to Germany and the United Kingdom in year 2.",
-    localizationStrategy: "Translate landing page to French/German and display localized pricing in Euros and British Pounds.",
-    franchisePossibility: "Low feasibility for retail storefront franchise; high feasibility for localized online distribution licensing.",
-    exitStrategy: "Targeted acquisition by large FMCG brands looking to expand their green portfolio by year 5."
+      keyPartners: 'Suppliers, logistics partners, technology vendors',
+      keyActivities: 'Product development, marketing, customer support',
+      keyResources: 'Team, brand, technology stack',
+      valuePropositions: details.products,
+      customerRelationships: 'Direct support, community, self-serve',
+      channels: 'Website, social media, marketplaces',
+      customerSegments: details.targetAudience,
+      costStructure: 'Product/service delivery, marketing, operations',
+      revenueStreams: details.businessModel
+    }
   };
+}
 
+/**
+ * Full mock report across all 5 volumes — used when GEMINI_API_KEY is entirely absent.
+ */
+export function generateDetailedMockReport(details) {
+  let sections = {};
+  let bonusAssets = {};
+  REPORT_STRUCTURE.forEach(volume => {
+    const mock = generateMockVolume(volume.volume, details);
+    sections = { ...sections, ...mock.sections };
+    if (volume.hasBonusAssets) bonusAssets = generateMockBonusAssets(details);
+  });
   return { sections, bonusAssets };
 }

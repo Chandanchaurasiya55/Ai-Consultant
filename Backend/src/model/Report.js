@@ -61,6 +61,14 @@ const reportSchema = new mongoose.Schema({
       default: {}
     }
   },
+  structure: {
+    type: mongoose.Schema.Types.Mixed,
+    default: []
+  },
+  volumeStatus: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   sections: {
     type: mongoose.Schema.Types.Mixed,
     default: {}

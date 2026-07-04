@@ -8,7 +8,7 @@ import {
   regenerateSection,
   exportReportJson,
   exportReportDocx
-} from '../controller/consultantController.js';
+} from '../controller/Reportcontroller.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
