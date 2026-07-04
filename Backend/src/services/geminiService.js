@@ -169,6 +169,11 @@ Generate a comprehensive, highly customized, and professional section.
 1. Write full, highly detailed, and exhaustive markdown content (at least 2000–3000 words) addressing all subtopics.
 2. CRITICAL LENGTH REQUIREMENT: The total word count of the "content" field MUST be at least 1500 words. For EACH subtopic listed under the chapter details: [${chapterMeta.subtopics.join(', ')}], you MUST write a distinct section headed by "#### [Subtopic Name]" and containing at least 4 detailed, comprehensive paragraphs (minimum 300 words per subtopic) of analysis, strategic advice, real-world metrics, and concrete steps. Short summaries, brief lists, or quick overviews are strictly forbidden.
 3. Provide a valid Mermaid.js diagram (such as flowchart, funnel, quadrant chart, or risk matrix) that visualizes the strategic concepts.
+CRITICAL MERMAID RULES:
+- You must ONLY use valid Mermaid.js syntax.
+- All node texts containing special characters (such as brackets, colons, parentheses, quotes, ampersands, or slashes) MUST be enclosed in double quotes. For example, write A["Step 1: Validation (30 Days)"] instead of A[Step 1: Validation (30 Days)] (which is invalid and will fail to render).
+- Flowcharts must start with a direction, e.g. "flowchart TD" or "flowchart LR".
+- Keep labels concise and avoid any markdown syntax inside node text.
 4. Include 1-2 charts with REAL numeric values relevant to the chapter.
 5. Give 2 Unsplash image search suggestions.
 6. Provide 3-5 specific recommendations with timeframe, cost, impact.

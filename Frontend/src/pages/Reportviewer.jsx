@@ -16,21 +16,43 @@ import mermaid from 'mermaid';
 
 Chart.register(BarElement, LineElement, PointElement, ArcElement, RadialLinearScale, CategoryScale, LinearScale, Tooltip, Legend, Filler);
 
-mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+mermaid.initialize({ 
+  startOnLoad: false, 
+  theme: 'neutral',
+  suppressErrors: true,
+  showErrors: false
+});
 
 const CHART_COMPONENTS = { bar: Bar, line: Line, pie: Pie, radar: Radar };
 
 function MermaidDiagram({ code, id }) {
   const ref = useRef(null);
+  const [hasError, setHasError] = useState(false);
+
   useEffect(() => {
     if (!code || !ref.current) return;
-    mermaid.render(`mermaid-${id}`, code).then(({ svg }) => {
-      if (ref.current) ref.current.innerHTML = svg;
-    }).catch((err) => {
-      console.error("Mermaid error:", err);
-      if (ref.current) ref.current.innerHTML = '<p class="text-xs text-slate-400 italic">Visual flow representation successfully rendered.</p>';
-    });
+    setHasError(false);
+
+    const renderDiag = async () => {
+      try {
+        await mermaid.parse(code);
+        const { svg } = await mermaid.render(`mermaid-${id}`, code);
+        if (ref.current) {
+          ref.current.innerHTML = svg;
+        }
+      } catch (err) {
+        console.error("Mermaid parsing or rendering failed:", err);
+        setHasError(true);
+      }
+    };
+
+    renderDiag();
   }, [code, id]);
+
+  if (hasError) {
+    return null; // Suppresses visual error box entirely
+  }
+
   return <div ref={ref} className="w-full overflow-x-auto py-3 flex justify-center bg-slate-50 rounded-xl my-2 border border-slate-100" />;
 }
 
