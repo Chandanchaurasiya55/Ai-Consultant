@@ -2,16 +2,16 @@ import Report from '../model/Report.js';
 import { enrichWebsiteData } from '../services/enrichmentService.js';
 import {
   REPORT_STRUCTURE,
-  generateVolume,
-  generateMockVolume,
+  generateSingleChapter,
+  generateBonusAssets,
   generateMockBonusAssets,
   generateDetailedMockReport,
-  regenerateChapter
+  generateMockChapter
 } from '../services/geminiService.js';
 import { GoogleGenAI } from '@google/genai';
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
-  BorderStyle, WidthType, AlignmentType, ImageRun
+  WidthType, AlignmentType, ImageRun
 } from 'docx';
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -97,14 +97,10 @@ Reply with JSON: { "competitors": [{ "name": "...", "description": "..." }] }
 
 /**
  * ==========================================================================
- * Endpoint: Orchestrate the FULL 5-Volume / 28-Chapter report generation
+ * Endpoint: Initialize the Report
  * ==========================================================================
- * Each volume is generated with its OWN Gemini call (see geminiService.js).
- * This is intentional: splitting generation volume-by-volume avoids
- * truncation / missed chapters that a single giant call would risk.
- * If a volume's real call fails, ONLY that volume falls back to mock data —
- * the rest of the report still uses real, grounded content.
- * ==========================================================================
+ * Creates a report document with all sections set to 'pending' state and returns
+ * the report ID immediately, allowing the client to compile chapters in real-time.
  */
 export const analyzeBusiness = async (req, res) => {
   try {
@@ -121,45 +117,50 @@ export const analyzeBusiness = async (req, res) => {
       return res.status(400).json({ message: `Audit generation blocked. Required fields missing: ${missing.join(', ')}` });
     }
 
-    console.log(`Orchestrating 5-Volume / 28-Chapter McKinsey-grade audit for: ${details.businessName}`);
+    console.log(`Initializing 4-Volume / 20-Chapter McKinsey-grade audit for: ${details.businessName}`);
 
-    let mergedSections = {};
-    let bonusAssets = {};
-    const volumeStatus = {}; // volume -> 'live' | 'fallback'
-
-    for (const volume of REPORT_STRUCTURE) {
-      console.log(`--- Generating Volume ${volume.volume}: ${volume.title} ---`);
-      if (ai) {
-        try {
-          const result = await generateVolume(volume.volume, details);
-          mergedSections = { ...mergedSections, ...result.sections };
-          if (result.bonusAssets) bonusAssets = result.bonusAssets;
-          volumeStatus[volume.key] = 'live';
-        } catch (e) {
-          console.error(`Volume ${volume.volume} (${volume.title}) generation failed, using fallback:`, e);
-          const mock = generateMockVolume(volume.volume, details);
-          mergedSections = { ...mergedSections, ...mock.sections };
-          if (volume.hasBonusAssets) bonusAssets = generateMockBonusAssets(details);
-          volumeStatus[volume.key] = 'fallback';
-        }
-      } else {
-        const mock = generateMockVolume(volume.volume, details);
-        mergedSections = { ...mergedSections, ...mock.sections };
-        if (volume.hasBonusAssets) bonusAssets = generateMockBonusAssets(details);
-        volumeStatus[volume.key] = 'fallback';
-      }
-    }
+    // Create empty pending sections for all chapters parsed from the MD file
+    const mergedSections = {};
+    REPORT_STRUCTURE.forEach(volume => {
+      volume.chapters.forEach(ch => {
+        mergedSections[ch.key] = {
+          key: ch.key,
+          title: ch.title,
+          content: 'Pending real-time generation...',
+          status: 'pending',
+          diagram: null,
+          charts: [],
+          imageSuggestions: [],
+          recommendations: [],
+          trustIndicators: []
+        };
+      });
+    });
 
     const sources = [
       { title: `${details.industry} Industry Outlook (2026)`, url: 'https://www.bcg.com', snippet: 'Benchmark trends, growth indices, and market sizes calculated for the current operational stage.' },
       { title: 'Google Keyword Planner Estimates', url: 'https://ads.google.com', snippet: 'Real-time keyword search intent volumes mapped for target categories.' }
     ];
 
+    // Generate brand assets upfront
+    let bonusAssets = {};
+    try {
+      bonusAssets = await generateBonusAssets(details);
+    } catch (e) {
+      bonusAssets = generateMockBonusAssets(details);
+    }
+
     const report = await Report.create({
       userId,
       businessDetails: details,
-      structure: REPORT_STRUCTURE.map(v => ({ volume: v.volume, key: v.key, title: v.title, subtitle: v.subtitle, chapterKeys: v.chapters.map(c => c.key) })),
-      volumeStatus,
+      structure: REPORT_STRUCTURE.map(v => ({
+        volume: v.volume,
+        key: v.key,
+        title: v.title,
+        subtitle: v.subtitle,
+        chapterKeys: v.chapters.map(c => c.key)
+      })),
+      volumeStatus: {},
       sections: mergedSections,
       sources,
       bonusAssets
@@ -176,11 +177,11 @@ export const analyzeBusiness = async (req, res) => {
         bonusAssets: report.bonusAssets,
         createdAt: report.createdAt
       },
-      message: 'Business Research Analysis complete! All 5 volumes generated.'
+      message: 'Business Research Audit initialized successfully! Real-time generation will begin shortly.'
     });
   } catch (error) {
-    console.error('Audit generation error:', error);
-    res.status(500).json({ message: 'Server error generating business research report.' });
+    console.error('Audit initialization error:', error);
+    res.status(500).json({ message: 'Server error initializing business research report.' });
   }
 };
 
@@ -205,7 +206,13 @@ export const getReportById = async (req, res) => {
     res.json({
       id: report._id,
       businessDetails: report.businessDetails,
-      structure: report.structure || REPORT_STRUCTURE,
+      structure: report.structure || REPORT_STRUCTURE.map(v => ({
+        volume: v.volume,
+        key: v.key,
+        title: v.title,
+        subtitle: v.subtitle,
+        chapterKeys: v.chapters.map(c => c.key)
+      })),
       volumeStatus: report.volumeStatus || {},
       sections: report.sections,
       sources: report.sources,
@@ -219,7 +226,7 @@ export const getReportById = async (req, res) => {
 };
 
 /**
- * Endpoint: Regenerate only a single chapter of the report
+ * Endpoint: Generate or Regenerate a single chapter/section of the report
  */
 export const regenerateSection = async (req, res) => {
   try {
@@ -231,25 +238,22 @@ export const regenerateSection = async (req, res) => {
     if (!report) return res.status(404).json({ message: 'Report not found.' });
     if (report.userId.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized to modify this report.' });
 
-    const volumeMeta = REPORT_STRUCTURE.find(v => v.chapters.some(c => c.key === sectionKey));
-    if (!volumeMeta) return res.status(400).json({ message: `Unknown chapter key: ${sectionKey}` });
+    const chapterMeta = REPORT_STRUCTURE.flatMap(v => v.chapters).find(c => c.key === sectionKey);
+    if (!chapterMeta) return res.status(400).json({ message: `Unknown chapter key: ${sectionKey}` });
 
     const details = report.businessDetails;
-    const currentSection = report.sections[sectionKey];
+
+    console.log(`Compiling chapter ${sectionKey} for report ${id}...`);
 
     let newSectionData;
-    if (ai) {
-      try {
-        newSectionData = await regenerateChapter(volumeMeta.volume, sectionKey, details, currentSection, modifier);
-      } catch (err) {
-        console.error('Gemini section regeneration failed, using fallback:', err);
-      }
-    }
-
-    if (!newSectionData) {
-      const mock = generateMockVolume(volumeMeta.volume, details);
-      newSectionData = mock.sections[sectionKey];
-      newSectionData.content = `### Strategic Review (Regenerated - fallback)\n\n${newSectionData.content}\n\nRequested update: "${modifier || 'Default update parameters'}"`;
+    try {
+      newSectionData = await generateSingleChapter(sectionKey, details, modifier);
+      newSectionData.status = 'completed';
+    } catch (err) {
+      console.error('Gemini chapter generation failed, using fallback:', err);
+      newSectionData = generateMockChapter(sectionKey, details);
+      newSectionData.status = 'completed';
+      newSectionData.content = `### Strategic Review (Fallback)\n\n${newSectionData.content}\n\n*Note: An API issue occurred during compilation.*`;
     }
 
     report.sections[sectionKey] = newSectionData;
@@ -258,8 +262,8 @@ export const regenerateSection = async (req, res) => {
 
     res.json({ sectionKey, section: newSectionData });
   } catch (error) {
-    console.error('Section regeneration error:', error);
-    res.status(500).json({ message: 'Error regenerating this section.' });
+    console.error('Section generation error:', error);
+    res.status(500).json({ message: 'Error generating this section.' });
   }
 };
 
@@ -280,12 +284,7 @@ export const exportReportJson = async (req, res) => {
 };
 
 /**
- * ==========================================================================
- * Helpers for the DOCX export: real chart images (via QuickChart, no key
- * needed) + a representative reference image per chapter (via Unsplash
- * Source, no key needed). Both are best-effort — if the fetch fails we
- * silently skip the image rather than break the whole export.
- * ==========================================================================
+ * Helpers for the DOCX export
  */
 async function fetchChartImageBuffer(chart) {
   try {
@@ -321,9 +320,7 @@ async function fetchReferenceImageBuffer(query) {
 }
 
 /**
- * Endpoint: Export report to Microsoft Word (DOCX) — now with real embedded
- * chart images, reference images, and readable diagram blocks, organized
- * Volume by Volume so nothing gets lost.
+ * Endpoint: Export report to Microsoft Word (DOCX)
  */
 export const exportReportDocx = async (req, res) => {
   try {
@@ -333,7 +330,13 @@ export const exportReportDocx = async (req, res) => {
     if (report.userId.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized to export this report.' });
 
     const business = report.businessDetails;
-    const structure = report.structure && report.structure.length ? report.structure : REPORT_STRUCTURE;
+    const structure = report.structure && report.structure.length ? report.structure : REPORT_STRUCTURE.map(v => ({
+      volume: v.volume,
+      key: v.key,
+      title: v.title,
+      subtitle: v.subtitle,
+      chapterKeys: v.chapters.map(c => c.key)
+    }));
     const children = [];
 
     children.push(
@@ -362,16 +365,16 @@ export const exportReportDocx = async (req, res) => {
       new Paragraph({ text: '' })
     );
 
-    // Table of contents (volume by volume)
+    // Table of contents
     children.push(new Paragraph({ text: 'Table of Contents', heading: HeadingLevel.HEADING_2 }));
     structure.forEach(volume => {
-      children.push(new Paragraph({ text: `Volume ${volume.volume} — ${volume.title}`, bullet: { level: 0 } }));
+      children.push(new Paragraph({ text: `${volume.title}`, bullet: { level: 0 } }));
     });
     children.push(new Paragraph({ text: '' }));
 
     for (const volume of structure) {
       children.push(
-        new Paragraph({ text: `VOLUME ${volume.volume}: ${volume.title.toUpperCase()}`, heading: HeadingLevel.HEADING_1 }),
+        new Paragraph({ text: `${volume.title.toUpperCase()}`, heading: HeadingLevel.HEADING_1 }),
         new Paragraph({ text: volume.subtitle || '' }),
         new Paragraph({ text: '' })
       );
@@ -385,7 +388,7 @@ export const exportReportDocx = async (req, res) => {
           new Paragraph({ text: (section.content || '').replace(/[#*_]/g, '') })
         );
 
-        // Diagram: render mermaid code as a readable monospace block
+        // Diagram
         if (section.diagram && section.diagram.mermaidCode) {
           children.push(
             new Paragraph({ text: `Diagram: ${section.diagram.caption || ''}`, heading: HeadingLevel.HEADING_3 }),
@@ -395,7 +398,7 @@ export const exportReportDocx = async (req, res) => {
           );
         }
 
-        // Charts: embed real chart images via QuickChart
+        // Charts
         if (section.charts && section.charts.length > 0) {
           for (const chart of section.charts) {
             const buf = await fetchChartImageBuffer(chart);
@@ -406,7 +409,7 @@ export const exportReportDocx = async (req, res) => {
                 new Paragraph({ text: '' })
               );
             } else {
-              // Fallback: render as a data table if the image fetch failed
+              // Fallback table
               const rows = [new TableRow({ children: [
                 new TableCell({ children: [new Paragraph({ text: 'Label', bold: true })] }),
                 ...chart.datasets.map(ds => new TableCell({ children: [new Paragraph({ text: ds.label, bold: true })] }))
@@ -437,7 +440,7 @@ export const exportReportDocx = async (req, res) => {
           }
         }
 
-        // Recommendations table
+        // Recommendations
         if (section.recommendations && section.recommendations.length > 0) {
           const recRows = [new TableRow({ children: [
             new TableCell({ children: [new Paragraph({ text: 'Recommendation', bold: true })], width: { size: 40, type: WidthType.PERCENTAGE } }),
@@ -464,7 +467,7 @@ export const exportReportDocx = async (req, res) => {
       }
     }
 
-    // Bonus Brand Assets (from Volume 5)
+    // Bonus Assets
     if (report.bonusAssets && Object.keys(report.bonusAssets).length > 0) {
       const assets = report.bonusAssets;
       children.push(

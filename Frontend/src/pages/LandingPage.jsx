@@ -16,14 +16,13 @@ const LandingPage = () => {
   ];
 
   const chapters = [
-    'Business Idea Validation', 'Industry Overview', 'TAM / SAM / SOM',
-    'Customer Research', 'Business Model Canvas', 'SWOT Analysis',
+    'Business Idea Validation', 'Industry Research', 'Market Size (TAM/SAM/SOM)',
+    'Customer Research', 'Competitor Research', 'SWOT Analysis',
     'PESTEL Analysis', "Porter's Five Forces", 'Demand Research',
-    'Keyword Research', 'Location Research', 'Competitor Mapping',
-    'SEO Analysis', 'Social Media Analysis', 'Paid Ads Analysis',
-    'Pricing Analysis', 'Review Mining', 'Financial Research',
-    'Marketing Strategy', 'Sales Funnel', 'Risk Analysis', 'Execution Roadmap',
-    'Templates Library', 'AI Prompt Library',
+    'Keyword Research', 'Location Research', 'Pricing Research',
+    'Financial Research', 'Marketing Research', 'Sales Research',
+    'Technology Research', 'Legal Research', 'Risk Analysis',
+    'Execution Roadmap', '100+ Ready-to-use Templates'
   ];
 
   return (
@@ -47,7 +46,7 @@ const LandingPage = () => {
           {/* badge */}
           <div className="inline-flex items-center gap-2 bg-white border border-indigo-100 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-medium mb-8 shadow-sm">
             <Sparkles size={12} className="fill-indigo-500 text-indigo-500" />
-            AI-Powered · 28 Chapters · Google Search Grounded
+            AI-Powered · 20 Chapters · Google Search Grounded
           </div>
 
           <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold text-slate-900 tracking-tight leading-[1.08] mb-6">
@@ -69,7 +68,7 @@ const LandingPage = () => {
           </h1>
 
           <p className="text-lg sm:text-xl text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
-            Generate a full McKinsey-grade market research report — 28 chapters, live-grounded data,
+            Generate a full McKinsey-grade market research report — 20 chapters, live-grounded data,
             charts, diagrams, and brand assets — in minutes. Just describe your business.
           </p>
 
@@ -108,9 +107,9 @@ const LandingPage = () => {
       <section className="bg-white border-y border-slate-100 py-10 px-6">
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
           {[
-            { value: '28',    label: 'Research chapters' },
-            { value: '5',     label: 'Report volumes' },
-            { value: '3 min', label: 'Avg generation time' },
+            { value: '20',    label: 'Research chapters' },
+            { value: '4',     label: 'Report volumes' },
+            { value: '1 min', label: 'Avg initialization time' },
             { value: '100%',  label: 'Live-grounded data' },
           ].map(s => (
             <div key={s.label}>
@@ -152,7 +151,7 @@ const LandingPage = () => {
               {/* sidebar */}
               <div className="hidden md:flex w-52 border-r border-slate-100 bg-slate-50/70 flex-col p-4 gap-1 shrink-0">
                 <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest px-2 mb-2">Chapters</p>
-                {['Vol 1 — Foundations', 'Vol 2 — Strategy', 'Vol 3 — Competitors', 'Vol 4 — Operations', 'Vol 5 — Toolkit'].map((v, i) => (
+                {['Vol 1 — Foundations', 'Vol 2 — Strategy', 'Vol 3 — Competitors', 'Vol 4 — Operations'].map((v, i) => (
                   <div key={v} className={`text-xs px-3 py-2 rounded-lg font-normal ${i === 1 ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
                     {v}
                   </div>
@@ -229,7 +228,7 @@ const LandingPage = () => {
           <div className="text-center mb-12">
             <p className="text-xs font-medium text-indigo-500 uppercase tracking-widest mb-3">Full coverage</p>
             <h2 className="font-display text-3xl sm:text-4xl font-semibold text-slate-900 tracking-tight mb-4">
-              28 chapters across 5 volumes
+              20 chapters across 4 volumes
             </h2>
             <p className="text-slate-500 max-w-xl mx-auto text-base font-normal leading-relaxed">
               Every section is backed by live web research — not templates, not generic advice.
@@ -339,7 +338,7 @@ const LandingPage = () => {
                 Ready to research your business?
               </h2>
               <p className="text-indigo-200 text-base font-normal max-w-lg mx-auto mb-8 leading-relaxed">
-                Describe your idea in 2 minutes. Get a 28-chapter, investor-ready research report powered by Google-grounded AI.
+                Describe your idea in 2 minutes. Get a 20-chapter, investor-ready research report powered by Google-grounded AI.
               </p>
               <Link to="/register"
                 className="group inline-flex items-center gap-2 bg-white text-indigo-700 hover:bg-slate-50 text-sm font-medium px-8 py-3.5 rounded-xl shadow-lg transition-all duration-200">

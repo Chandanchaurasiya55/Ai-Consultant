@@ -77,7 +77,7 @@ const Dashboard = () => {
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Chapters Generated</div>
-            <div className="text-3xl font-extrabold text-brand-600">{reports.length * 28}</div>
+            <div className="text-3xl font-extrabold text-brand-600">{reports.length * 20}</div>
           </div>
           <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Account</div>

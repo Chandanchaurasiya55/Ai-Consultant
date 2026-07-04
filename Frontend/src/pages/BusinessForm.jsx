@@ -144,7 +144,7 @@ const BusinessForm = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Report generation failed.');
-      setTimeout(() => { setLoading(false); navigate(`/audit/report/${data.report.id}`); }, 1500);
+      setTimeout(() => { setLoading(false); navigate(`/audit/report/${data.report.id}`); }, 1000);
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -167,7 +167,7 @@ const BusinessForm = () => {
             </div>
             <div>
               <h2 className="text-xl font-extrabold text-slate-900">AI Business Research Agent</h2>
-              <p className="text-xs text-slate-500">Executing 5-Volume / 28-Chapter McKinsey-grade audit</p>
+              <p className="text-xs text-slate-500">Initializing 4-Volume / 20-Chapter McKinsey-grade audit</p>
             </div>
           </div>
           <div className="flex flex-col gap-4 mt-6">
@@ -450,7 +450,7 @@ const BusinessForm = () => {
               ) : (
                 <button type="button" onClick={handleSubmit}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold px-6 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer ml-auto ring-4 ring-indigo-500/10">
-                  <Sparkles size={14} fill="white" /> Generate 28-Chapter Research Report
+                  <Sparkles size={14} fill="white" /> Generate 20-Chapter Research Report
                 </button>
               )}
             </div>
